@@ -7,9 +7,15 @@ import cors from 'cors';
 import askRouter from './routes/ask';
 import healthRouter from './routes/health';
 import statsRouter from './routes/stats';
+import reindexRouter from './routes/reindex';
+import { initializePinecone } from './services/vectorStore';
 
 const app: Express = express();
 const port = process.env.PORT || 3000;
+
+initializePinecone().catch(err => {
+  console.error('Failed to initialize Pinecone:', err);
+});
 
 // Middleware
 app.use(cors());
@@ -27,17 +33,26 @@ app.use((req: Request, res: Response, next) => {
 app.use('/ask', askRouter);
 app.use('/health', healthRouter);
 app.use('/stats', statsRouter);
+app.use('/reindex', reindexRouter);
 
 // Root endpoint
 app.get('/', (req: Request, res: Response) => {
   res.json({
     name: 'Member Q&A System',
-    version: '1.0.0',
-    description: 'AI-powered question-answering system for member data',
+    version: '2.0.0',
+    description: 'AI-powered question-answering system with semantic search',
+    features: [
+      'Semantic search with vector embeddings',
+      'Multi-agent architecture',
+      'Intelligent query optimization',
+      'Proactive recommendations'
+    ],
     endpoints: {
       ask: 'POST /ask - Ask questions about member data',
       health: 'GET /health - Health check',
-      stats: 'GET /stats - Dataset statistics'
+      stats: 'GET /stats - Dataset statistics',
+      reindex: 'POST /reindex - Reindex messages to vector store',
+      reindexStats: 'GET /reindex/stats - Get vector store statistics'
     }
   });
 });
@@ -64,7 +79,9 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`\n📍 Available endpoints:`);
     console.log(`   POST http://localhost:${port}/ask`);
     console.log(`   GET  http://localhost:${port}/health`);
-    console.log(`   GET  http://localhost:${port}/stats\n`);
+    console.log(`   GET  http://localhost:${port}/stats`);
+    console.log(`   POST http://localhost:${port}/reindex`);
+    console.log(`   GET  http://localhost:${port}/reindex/stats\n`);
   });
 }
 
