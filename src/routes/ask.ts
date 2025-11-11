@@ -42,7 +42,7 @@ router.post('/', async (req: Request, res: Response) => {
     const cacheData = await cacheManager.getData();
 
     // Optimize query - find relevant messages
-    const relevantMessages = optimizeQuery(
+    const relevantMessages = await optimizeQuery(
       question,
       cacheData.messagesByUser,
       cacheData.messages
@@ -57,19 +57,21 @@ router.post('/', async (req: Request, res: Response) => {
         answer: "The available data does not contain this information.",
         confidence: 'low',
         sources: 0,
-        references: []
+        references: [],
+        further_recommendation: undefined
       } as AskResponse);
     }
 
     // Get answer from Claude
-    const { answer, confidence, references } = await answerQuestion(question, messagesToSend);
+    const { answer, confidence, references, recommendation } = await answerQuestion(question, messagesToSend);
 
     // Return response
     const response: AskResponse = {
       answer,
       confidence,
       sources: messagesToSend.length,
-      references
+      references,
+      further_recommendation: recommendation
     };
 
     console.log(`📤 Answer: "${answer}" (${messagesToSend.length} sources, ${confidence} confidence)\n`);
