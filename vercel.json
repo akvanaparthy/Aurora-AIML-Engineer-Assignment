@@ -23,6 +23,16 @@
       "methods": ["GET"]
     },
     {
+      "src": "/reindex",
+      "dest": "src/index.ts",
+      "methods": ["POST", "OPTIONS"]
+    },
+    {
+      "src": "/reindex/stats",
+      "dest": "src/index.ts",
+      "methods": ["GET"]
+    },
+    {
       "src": "/(.*)",
       "dest": "src/index.ts"
     }
