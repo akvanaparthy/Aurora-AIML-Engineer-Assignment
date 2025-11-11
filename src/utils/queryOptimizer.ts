@@ -1,28 +1,36 @@
 import { Message } from '../types';
 import { findUserName, extractKeywords, filterRelevantMessages } from './dataProcessor';
+import { semanticSearch, isVectorStoreReady } from '../services/vectorStore';
 
 const MAX_MESSAGES_TO_CLAUDE = 50;
 const MAX_MESSAGES_PER_USER = 30;
 
+const ENABLE_SEMANTIC_SEARCH = process.env.ENABLE_SEMANTIC_SEARCH === 'true';
+
 /**
  * Optimize the query by finding relevant messages and reducing context size
  */
-export function optimizeQuery(
+export async function optimizeQuery(
   question: string,
   messagesByUser: Map<string, Message[]>,
   allMessages: Message[]
-): Message[] {
+): Promise<Message[]> {
   // Step 1: Check if the question mentions a specific user
   const userName = extractUserNameFromQuestion(question, messagesByUser);
 
   if (userName) {
     console.log(`   Detected user in question: ${userName}`);
-    return optimizeForUser(question, userName, messagesByUser);
+    return optimizeForUser(question, userName, messagesByUser, allMessages);
   }
 
-  // Step 2: No specific user - use keyword-based filtering on all messages
-  console.log(`   No specific user detected, filtering by keywords`);
-  return optimizeGeneral(question, allMessages);
+  // Step 2: No specific user - use semantic or keyword-based filtering
+  if (ENABLE_SEMANTIC_SEARCH && isVectorStoreReady()) {
+    console.log(`   Using semantic search for query`);
+    return optimizeWithSemanticSearch(question);
+  } else {
+    console.log(`   No specific user detected, filtering by keywords`);
+    return optimizeGeneral(question, allMessages);
+  }
 }
 
 /**
@@ -65,23 +73,42 @@ function extractUserNameFromQuestion(
 }
 
 /**
+ * Optimize query using semantic search
+ */
+async function optimizeWithSemanticSearch(question: string): Promise<Message[]> {
+  const topK = parseInt(process.env.SEMANTIC_SEARCH_TOP_K || '20', 10);
+  const results = await semanticSearch(question, topK);
+  return results.slice(0, MAX_MESSAGES_TO_CLAUDE);
+}
+
+/**
  * Optimize query for a specific user
  */
-function optimizeForUser(
+async function optimizeForUser(
   question: string,
   userName: string,
-  messagesByUser: Map<string, Message[]>
-): Message[] {
+  messagesByUser: Map<string, Message[]>,
+  allMessages: Message[]
+): Promise<Message[]> {
   const userMessages = messagesByUser.get(userName) || [];
 
   if (userMessages.length === 0) {
     return [];
   }
 
-  // Extract keywords from question
+  if (ENABLE_SEMANTIC_SEARCH && isVectorStoreReady()) {
+    const topK = parseInt(process.env.SEMANTIC_SEARCH_TOP_K || '20', 10);
+    const semanticResults = await semanticSearch(question, topK, {
+      user_name: userName
+    });
+
+    const limited = semanticResults.slice(0, MAX_MESSAGES_PER_USER);
+    console.log(`   Found ${limited.length} relevant messages for ${userName} using semantic search`);
+    return limited;
+  }
+
   const keywords = extractKeywords(question);
 
-  // Filter user's messages by relevance
   const relevantMessages = filterRelevantMessages(
     userMessages,
     keywords,
