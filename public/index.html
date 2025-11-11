@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aurora Member Q&A</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0604;
+      color: #ffffff;
+      overflow-x: hidden;
+      min-height: 100vh;
+    }
+
+    .background-glow {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(ellipse at center, rgba(139, 89, 42, 0.3) 0%, rgba(10, 6, 4, 0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 50px 40px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      animation: fadeInDown 0.8s ease;
+    }
+
+    .logo {
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .logo img {
+      height: 60px;
+      width: auto;
+      filter: brightness(1.1);
+    }
+
+    .tagline {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      font-weight: 300;
+      color: rgba(255, 255, 255, 0.65);
+      letter-spacing: 0.02em;
+    }
+
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      margin-bottom: 20px;
+      overflow-y: auto;
+      padding: 32px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 24px;
+      border: 1px solid rgba(212, 165, 116, 0.1);
+      backdrop-filter: blur(20px);
+      min-height: 500px;
+      max-height: 70vh;
+    }
+
+    .chat-container::-webkit-scrollbar {
+      width: 10px;
+    }
+
+    .chat-container::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 10px;
+    }
+
+    .chat-container::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, rgba(212, 165, 116, 0.4), rgba(139, 89, 42, 0.4));
+      border-radius: 10px;
+      border: 2px solid rgba(10, 6, 4, 0.5);
+    }
+
+    .chat-container::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, rgba(212, 165, 116, 0.6), rgba(139, 89, 42, 0.6));
+    }
+
+    .message {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      animation: fadeInUp 0.5s ease;
+    }
+
+    .message-bubble {
+      padding: 16px 20px;
+      border-radius: 16px;
+      max-width: 85%;
+      word-wrap: break-word;
+    }
+
+    .message.user {
+      align-items: flex-end;
+    }
+
+    .message.user .message-bubble {
+      background: linear-gradient(135deg, rgba(212, 165, 116, 0.15) 0%, rgba(139, 89, 42, 0.15) 100%);
+      border: 1px solid rgba(212, 165, 116, 0.3);
+      backdrop-filter: blur(10px);
+    }
+
+    .message.assistant {
+      align-items: flex-start;
+    }
+
+    .message.assistant .message-bubble {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+    }
+
+    .message-label {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.5);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 0 8px;
+    }
+
+    .confidence-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 500;
+      margin-top: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .confidence-high {
+      background: rgba(76, 175, 80, 0.2);
+      border: 1px solid rgba(76, 175, 80, 0.4);
+      color: #a5d6a7;
+    }
+
+    .confidence-medium {
+      background: rgba(255, 193, 7, 0.2);
+      border: 1px solid rgba(255, 193, 7, 0.4);
+      color: #ffe082;
+    }
+
+    .confidence-low {
+      background: rgba(244, 67, 54, 0.2);
+      border: 1px solid rgba(244, 67, 54, 0.4);
+      color: #ef9a9a;
+    }
+
+    .recommendation {
+      margin-top: 12px;
+      padding: 12px 16px;
+      background: rgba(212, 165, 116, 0.1);
+      border-left: 3px solid #d4a574;
+      border-radius: 8px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .recommendation-label {
+      font-size: 11px;
+      color: #d4a574;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .references {
+      margin-top: 12px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.5);
+    }
+
+    .reference-item {
+      padding: 8px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .input-container {
+      position: sticky;
+      bottom: 0;
+      padding: 20px;
+      background: rgba(10, 6, 4, 0.95);
+      border-radius: 24px;
+      border: 1px solid rgba(212, 165, 116, 0.2);
+      backdrop-filter: blur(20px);
+      animation: fadeInUp 0.8s ease;
+    }
+
+    .input-wrapper {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    #questionInput {
+      flex: 1;
+      padding: 16px 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(212, 165, 116, 0.2);
+      border-radius: 16px;
+      color: #ffffff;
+      font-size: 15px;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    #questionInput:focus {
+      border-color: rgba(212, 165, 116, 0.5);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 4px rgba(212, 165, 116, 0.1);
+    }
+
+    #questionInput::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    #askButton {
+      padding: 16px 32px;
+      background: linear-gradient(135deg, #d4a574 0%, #8b592a 100%);
+      border: none;
+      border-radius: 16px;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    #askButton:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(212, 165, 116, 0.3);
+    }
+
+    #askButton:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .loading {
+      display: flex;
+      gap: 8px;
+      padding: 16px 20px;
+    }
+
+    .loading-dot {
+      width: 8px;
+      height: 8px;
+      background: #d4a574;
+      border-radius: 50%;
+      animation: loading 1.4s infinite ease-in-out;
+    }
+
+    .loading-dot:nth-child(1) {
+      animation-delay: -0.32s;
+    }
+
+    .loading-dot:nth-child(2) {
+      animation-delay: -0.16s;
+    }
+
+    .example-questions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 24px;
+      justify-content: center;
+    }
+
+    .example-btn {
+      padding: 8px 16px;
+      background: rgba(212, 165, 116, 0.1);
+      border: 1px solid rgba(212, 165, 116, 0.2);
+      border-radius: 20px;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .example-btn:hover {
+      background: rgba(212, 165, 116, 0.2);
+      border-color: rgba(212, 165, 116, 0.4);
+      color: #ffffff;
+    }
+
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes loading {
+      0%, 80%, 100% {
+        transform: scale(0);
+        opacity: 0.5;
+      }
+      40% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 24px 20px;
+      }
+
+      .logo img {
+        height: 45px;
+      }
+
+      .chat-container {
+        padding: 20px;
+        min-height: 400px;
+      }
+
+      .message-bubble {
+        max-width: 90%;
+      }
+
+      #askButton {
+        padding: 14px 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="background-glow"></div>
+
+  <div class="container">
+    <div class="header">
+      <div class="logo">
+        <img src="/aurora-logo.svg" alt="Aurora">
+      </div>
+      <div class="tagline">Master the art of living</div>
+    </div>
+
+    <div class="chat-container" id="chatContainer">
+      <div class="message assistant">
+        <div class="message-label">Aurora AI</div>
+        <div class="message-bubble">
+          Welcome to Aurora's Member Q&A system. Ask me anything about our members' preferences, travel plans, or lifestyle requests.
+        </div>
+      </div>
+    </div>
+
+    <div class="input-container">
+      <div class="example-questions">
+        <button class="example-btn" onclick="askExample('When is Layla planning her trip to London?')">
+          Layla's London Trip
+        </button>
+        <button class="example-btn" onclick="askExample('How many cars does Vikram Desai have?')">
+          Vikram's Cars
+        </button>
+        <button class="example-btn" onclick="askExample('What are Amira\'s favorite restaurants?')">
+          Amira's Restaurants
+        </button>
+      </div>
+      <div class="input-wrapper">
+        <input
+          type="text"
+          id="questionInput"
+          placeholder="Ask a question about member preferences..."
+          onkeypress="if(event.key === 'Enter') askQuestion()"
+        />
+        <button id="askButton" onclick="askQuestion()">Ask</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function askQuestion() {
+      const input = document.getElementById('questionInput');
+      const button = document.getElementById('askButton');
+      const chatContainer = document.getElementById('chatContainer');
+      const question = input.value.trim();
+
+      if (!question) return;
+
+      button.disabled = true;
+      input.value = '';
+
+      addMessage('user', question);
+      addLoadingMessage();
+
+      try {
+        const response = await fetch('/ask', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ question })
+        });
+
+        const data = await response.json();
+        removeLoadingMessage();
+
+        if (response.ok) {
+          addMessage('assistant', data.answer, data.confidence, data.references, data.further_recommendation, data.sources);
+        } else {
+          addMessage('assistant', `Error: ${data.message || 'Unable to process your question'}`, 'low');
+        }
+      } catch (error) {
+        removeLoadingMessage();
+        addMessage('assistant', 'Sorry, there was an error processing your request. Please try again.', 'low');
+      }
+
+      button.disabled = false;
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function askExample(question) {
+      document.getElementById('questionInput').value = question;
+      askQuestion();
+    }
+
+    function addMessage(type, text, confidence, references, recommendation, sources) {
+      const chatContainer = document.getElementById('chatContainer');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${type}`;
+
+      let content = `
+        <div class="message-label">${type === 'user' ? 'You' : 'Aurora AI'}</div>
+        <div class="message-bubble">
+          ${text}
+      `;
+
+      if (confidence && type === 'assistant') {
+        content += `<div class="confidence-badge confidence-${confidence}">${confidence} confidence</div>`;
+      }
+
+      if (sources && type === 'assistant') {
+        content += `<div style="margin-top: 8px; font-size: 12px; color: rgba(255,255,255,0.5);">${sources} source${sources !== 1 ? 's' : ''}</div>`;
+      }
+
+      content += '</div>';
+
+      if (recommendation && type === 'assistant') {
+        content += `
+          <div class="recommendation">
+            <div class="recommendation-label">Recommendation</div>
+            ${recommendation}
+          </div>
+        `;
+      }
+
+      if (references && references.length > 0 && type === 'assistant') {
+        content += '<div class="references"><strong>References:</strong>';
+        references.slice(0, 3).forEach(ref => {
+          content += `
+            <div class="reference-item">
+              <strong>${ref.user}</strong> (${ref.date})<br>
+              ${ref.excerpt}
+            </div>
+          `;
+        });
+        content += '</div>';
+      }
+
+      messageDiv.innerHTML = content;
+      chatContainer.appendChild(messageDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function addLoadingMessage() {
+      const chatContainer = document.getElementById('chatContainer');
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'message assistant';
+      loadingDiv.id = 'loadingMessage';
+      loadingDiv.innerHTML = `
+        <div class="message-label">Aurora AI</div>
+        <div class="message-bubble">
+          <div class="loading">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+          </div>
+        </div>
+      `;
+      chatContainer.appendChild(loadingDiv);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function removeLoadingMessage() {
+      const loadingMessage = document.getElementById('loadingMessage');
+      if (loadingMessage) {
+        loadingMessage.remove();
+      }
+    }
+  </script>
+</body>
+</html>

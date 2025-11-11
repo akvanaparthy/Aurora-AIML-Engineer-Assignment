@@ -4,6 +4,7 @@ dotenv.config();
 
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
+import path from 'path';
 import askRouter from './routes/ask';
 import healthRouter from './routes/health';
 import statsRouter from './routes/stats';
@@ -21,6 +22,9 @@ initializePinecone().catch(err => {
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Request logging middleware
 app.use((req: Request, res: Response, next) => {
@@ -86,3 +90,4 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 export default app;
+
