@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: member-qa-system
+    env: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CLAUDE_API_KEY
+        sync: false
+      - key: MESSAGES_API_URL
+        value: https://november7-730026606190.europe-west1.run.app
+      - key: CACHE_TTL_HOURS
+        value: 1
+      - key: PORT
+        value: 3000
+      - key: PINECONE_API_KEY
+        sync: false
+      - key: PINECONE_INDEX
+        value: member-messages
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ENABLE_SEMANTIC_SEARCH
+        value: true
+      - key: SEMANTIC_SEARCH_TOP_K
+        value: 20
+    healthCheckPath: /health
+    autoDeploy: true
