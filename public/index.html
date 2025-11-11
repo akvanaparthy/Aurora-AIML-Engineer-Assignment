@@ -2,16 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Aurora Member Q&A</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --viewport-height: 100vh;
+    }
+
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
     }
 
     body {
@@ -20,6 +27,16 @@
       color: #ffffff;
       overflow-x: hidden;
       min-height: 100vh;
+      min-height: -webkit-fill-available;
+      width: 100%;
+      max-width: 100vw;
+      position: relative;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    html {
+      height: -webkit-fill-available;
     }
 
     .background-glow {
@@ -75,35 +92,37 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 20px;
       margin-bottom: 20px;
       overflow-y: auto;
-      padding: 32px;
+      padding: 24px;
       background: rgba(255, 255, 255, 0.02);
-      border-radius: 24px;
+      border-radius: 16px;
       border: 1px solid rgba(212, 165, 116, 0.1);
       backdrop-filter: blur(20px);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
       min-height: 500px;
       max-height: 70vh;
     }
 
     .chat-container::-webkit-scrollbar {
-      width: 10px;
+      width: 8px;
     }
 
     .chat-container::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.02);
-      border-radius: 10px;
+      background: transparent;
     }
 
     .chat-container::-webkit-scrollbar-thumb {
-      background: linear-gradient(180deg, rgba(212, 165, 116, 0.4), rgba(139, 89, 42, 0.4));
-      border-radius: 10px;
-      border: 2px solid rgba(10, 6, 4, 0.5);
+      background: rgba(212, 165, 116, 0.3);
+      border-radius: 4px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
     }
 
     .chat-container::-webkit-scrollbar-thumb:hover {
-      background: linear-gradient(180deg, rgba(212, 165, 116, 0.6), rgba(139, 89, 42, 0.6));
+      background: rgba(212, 165, 116, 0.5);
+      background-clip: padding-box;
     }
 
     .message {
@@ -114,10 +133,11 @@
     }
 
     .message-bubble {
-      padding: 16px 20px;
-      border-radius: 16px;
+      padding: 14px 16px;
+      border-radius: 18px;
       max-width: 85%;
       word-wrap: break-word;
+      line-height: 1.5;
     }
 
     .message.user {
@@ -150,13 +170,13 @@
 
     .confidence-badge {
       display: inline-block;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 11px;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-size: 12px;
       font-weight: 500;
       margin-top: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+      text-transform: capitalize;
+      letter-spacing: 0.01em;
     }
 
     .confidence-high {
@@ -179,11 +199,12 @@
 
     .recommendation {
       margin-top: 12px;
-      padding: 12px 16px;
+      padding: 14px 16px;
       background: rgba(212, 165, 116, 0.1);
       border-left: 3px solid #d4a574;
-      border-radius: 8px;
+      border-radius: 12px;
       font-size: 14px;
+      line-height: 1.5;
       color: rgba(255, 255, 255, 0.8);
     }
 
@@ -198,23 +219,32 @@
 
     .references {
       margin-top: 12px;
-      font-size: 12px;
+      font-size: 14px;
       color: rgba(255, 255, 255, 0.5);
+      line-height: 1.5;
     }
 
     .reference-item {
-      padding: 8px 0;
+      padding: 10px 0;
       border-top: 1px solid rgba(255, 255, 255, 0.05);
+      line-height: 1.6;
+    }
+
+    .reference-item strong {
+      font-size: 15px;
+      color: rgba(255, 255, 255, 0.7);
     }
 
     .input-container {
       position: sticky;
       bottom: 0;
-      padding: 20px;
+      padding: 16px;
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
       background: rgba(10, 6, 4, 0.95);
-      border-radius: 24px;
+      border-radius: 16px;
       border: 1px solid rgba(212, 165, 116, 0.2);
       backdrop-filter: blur(20px);
+      box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.15);
       animation: fadeInUp 0.8s ease;
     }
 
@@ -226,20 +256,22 @@
 
     #questionInput {
       flex: 1;
-      padding: 16px 20px;
+      padding: 14px 16px;
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(212, 165, 116, 0.2);
-      border-radius: 16px;
+      border-radius: 12px;
       color: #ffffff;
-      font-size: 15px;
+      font-size: 16px;
+      line-height: 1.4;
       outline: none;
-      transition: all 0.3s ease;
+      transition: all 0.2s ease;
+      -webkit-appearance: none;
     }
 
     #questionInput:focus {
       border-color: rgba(212, 165, 116, 0.5);
       background: rgba(255, 255, 255, 0.08);
-      box-shadow: 0 0 0 4px rgba(212, 165, 116, 0.1);
+      box-shadow: 0 0 0 3px rgba(212, 165, 116, 0.15);
     }
 
     #questionInput::placeholder {
@@ -247,26 +279,31 @@
     }
 
     #askButton {
-      padding: 16px 32px;
+      padding: 14px 28px;
+      min-height: 44px;
       background: linear-gradient(135deg, #d4a574 0%, #8b592a 100%);
       border: none;
-      border-radius: 16px;
+      border-radius: 12px;
       color: #ffffff;
-      font-size: 15px;
-      font-weight: 500;
+      font-size: 16px;
+      font-weight: 600;
       cursor: pointer;
-      transition: all 0.3s ease;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
+      transition: all 0.2s ease;
+      letter-spacing: -0.01em;
+      -webkit-appearance: none;
     }
 
     #askButton:hover:not(:disabled) {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 24px rgba(212, 165, 116, 0.3);
+      transform: scale(1.02);
+      box-shadow: 0 6px 20px rgba(212, 165, 116, 0.35);
+    }
+
+    #askButton:active:not(:disabled) {
+      transform: scale(0.98);
     }
 
     #askButton:disabled {
-      opacity: 0.5;
+      opacity: 0.4;
       cursor: not-allowed;
     }
 
@@ -301,20 +338,28 @@
     }
 
     .example-btn {
-      padding: 8px 16px;
+      padding: 10px 16px;
+      min-height: 36px;
       background: rgba(212, 165, 116, 0.1);
       border: 1px solid rgba(212, 165, 116, 0.2);
-      border-radius: 20px;
+      border-radius: 10px;
       color: rgba(255, 255, 255, 0.7);
-      font-size: 13px;
+      font-size: 14px;
+      font-weight: 500;
       cursor: pointer;
-      transition: all 0.3s ease;
+      transition: all 0.2s ease;
+      -webkit-appearance: none;
     }
 
     .example-btn:hover {
       background: rgba(212, 165, 116, 0.2);
       border-color: rgba(212, 165, 116, 0.4);
       color: #ffffff;
+      transform: scale(1.02);
+    }
+
+    .example-btn:active {
+      transform: scale(0.98);
     }
 
     @keyframes fadeInDown {
@@ -351,25 +396,141 @@
     }
 
     @media (max-width: 768px) {
+      body {
+        font-size: 16px;
+      }
+
       .container {
-        padding: 24px 20px;
+        padding: 16px 12px;
+        max-width: 100%;
+      }
+
+      .header {
+        margin-bottom: 20px;
       }
 
       .logo img {
-        height: 45px;
+        height: 40px;
+      }
+
+      .tagline {
+        font-size: 14px;
       }
 
       .chat-container {
-        padding: 20px;
-        min-height: 400px;
+        padding: 12px;
+        min-height: calc(100vh - 350px);
+        max-height: calc(100vh - 350px);
+        border-radius: 16px;
+        gap: 16px;
+      }
+
+      .message {
+        gap: 6px;
+      }
+
+      .message-label {
+        font-size: 11px;
       }
 
       .message-bubble {
-        max-width: 90%;
+        max-width: 85%;
+        padding: 12px 14px;
+        border-radius: 18px;
+        font-size: 15px;
+        line-height: 1.5;
+      }
+
+      .confidence-badge {
+        font-size: 11px;
+        padding: 5px 10px;
+      }
+
+      .references {
+        font-size: 13px;
+      }
+
+      .reference-item {
+        padding: 8px 0;
+      }
+
+      .reference-item strong {
+        font-size: 14px;
+      }
+
+      .recommendation {
+        font-size: 13px;
+        padding: 12px 14px;
+      }
+
+      .recommendation-label {
+        font-size: 10px;
+      }
+
+      .input-container {
+        padding: 12px;
+        border-radius: 16px;
+      }
+
+      .example-questions {
+        margin-bottom: 16px;
+        gap: 8px;
+      }
+
+      .example-btn {
+        font-size: 13px;
+        padding: 8px 12px;
+        border-radius: 10px;
+      }
+
+      .input-wrapper {
+        gap: 8px;
+      }
+
+      #questionInput {
+        font-size: 16px;
+        padding: 12px 14px;
+        border-radius: 12px;
       }
 
       #askButton {
-        padding: 14px 24px;
+        padding: 12px 16px;
+        min-width: 70px;
+        font-size: 15px;
+        border-radius: 12px;
+        white-space: nowrap;
+      }
+
+      .chat-container::-webkit-scrollbar {
+        width: 4px;
+      }
+    }
+
+    @media (max-width: 393px) {
+      .container {
+        padding: 12px 8px;
+      }
+
+      .chat-container {
+        padding: 10px;
+      }
+
+      .message-bubble {
+        font-size: 14px;
+      }
+
+      .example-questions {
+        gap: 6px;
+      }
+
+      .example-btn {
+        font-size: 12px;
+        padding: 7px 10px;
+      }
+
+      #askButton {
+        padding: 12px 14px;
+        font-size: 14px;
       }
     }
   </style>
@@ -473,17 +634,8 @@
         <div class="message-label">${type === 'user' ? 'You' : 'Aurora AI'}</div>
         <div class="message-bubble">
           ${text}
+        </div>
       `;
-
-      if (confidence && type === 'assistant') {
-        content += `<div class="confidence-badge confidence-${confidence}">${confidence} confidence</div>`;
-      }
-
-      if (sources && type === 'assistant') {
-        content += `<div style="margin-top: 8px; font-size: 12px; color: rgba(255,255,255,0.5);">${sources} source${sources !== 1 ? 's' : ''}</div>`;
-      }
-
-      content += '</div>';
 
       if (recommendation && type === 'assistant') {
         content += `
@@ -505,6 +657,15 @@
           `;
         });
         content += '</div>';
+      }
+
+      if (confidence && type === 'assistant') {
+        content += `<div style="margin-top: 12px; display: flex; gap: 12px; align-items: center;">`;
+        content += `<div class="confidence-badge confidence-${confidence}">${confidence} confidence</div>`;
+        if (sources) {
+          content += `<div style="font-size: 12px; color: rgba(255,255,255,0.5);">${sources} source${sources !== 1 ? 's' : ''}</div>`;
+        }
+        content += `</div>`;
       }
 
       messageDiv.innerHTML = content;
