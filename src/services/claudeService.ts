@@ -11,12 +11,32 @@ const anthropic = new Anthropic({
 });
 
 /**
+ * Parse structured response with ANSWER and RECOMMENDATION sections
+ */
+function parseStructuredResponse(text: string): { answer: string; recommendation?: string } {
+  const answerMatch = text.match(/ANSWER:\s*([\s\S]*?)(?=RECOMMENDATION:|$)/i);
+  const recommendationMatch = text.match(/RECOMMENDATION:\s*([\s\S]*?)$/i);
+
+  let answer = answerMatch ? answerMatch[1].trim() : text.trim();
+  let recommendation = recommendationMatch ? recommendationMatch[1].trim() : undefined;
+
+  if (!answer && !recommendation) {
+    answer = text.trim();
+  }
+
+  return {
+    answer,
+    recommendation: recommendation && recommendation.length > 0 ? recommendation : undefined
+  };
+}
+
+/**
  * Answer a question using Claude based on relevant messages
  */
 export async function answerQuestion(
   question: string,
   relevantMessages: Message[]
-): Promise<{ answer: string; confidence: 'high' | 'medium' | 'low'; references: Array<{ user: string; date: string; excerpt: string }> }> {
+): Promise<{ answer: string; confidence: 'high' | 'medium' | 'low'; references: Array<{ user: string; date: string; excerpt: string }>; recommendation?: string }> {
   if (!CLAUDE_API_KEY) {
     throw new Error('CLAUDE_API_KEY is not configured');
   }
@@ -48,9 +68,12 @@ export async function answerQuestion(
     });
 
     // Extract answer from response
-    const answerText = response.content[0].type === 'text'
+    const responseText = response.content[0].type === 'text'
       ? response.content[0].text
       : '';
+
+    // Parse structured response
+    const { answer: answerText, recommendation } = parseStructuredResponse(responseText);
 
     // Determine confidence based on context and response
     const confidence = determineConfidence(
@@ -75,7 +98,8 @@ export async function answerQuestion(
     return {
       answer: cleanAnswer(answerText),
       confidence,
-      references
+      references,
+      recommendation: recommendation ? cleanAnswer(recommendation) : undefined
     };
   } catch (error) {
     console.error('❌ Claude API error:', error);
@@ -87,25 +111,37 @@ export async function answerQuestion(
  * Build system prompt that defines Claude's role and behavior
  */
 function getSystemPrompt(): string {
-  return `You are an AI assistant analyzing member data from a luxury concierge service. Your role is to provide factual, objective answers based on the messages.
+  return `You are an AI assistant analyzing member data from a luxury concierge service. Your role is to provide factual answers and proactive recommendations based on the messages.
 
-Guidelines:
+Guidelines for Answer:
 1. Answer ONLY based on the information in the messages
 2. Be specific with details (dates, numbers, locations, names)
 3. If information is not available, state: "The available data does not contain this information"
 4. Keep answers concise (1-2 sentences maximum)
 5. Write in third person, reporting facts objectively
-6. Do NOT include reference phrases like "as mentioned in", "according to the message", "in her message"
+6. Do NOT include reference phrases like "as mentioned in", "according to the message"
 7. Do NOT cite dates or sources in the answer - just state the facts
 
-Examples:
-- GOOD: "Layla is planning a five-night stay at Claridge's in London starting on a Monday in November 2025, with a chauffeur-driven Bentley."
-- BAD: "Layla is planning her trip to London next month, as mentioned in her August 29, 2025 message."
+Guidelines for Recommendation:
+1. Based on patterns in the member's messages, provide ONE actionable recommendation
+2. Consider preferences, frequent requests, upcoming events, or potential needs
+3. Keep it concise (1 sentence)
+4. Make it specific and relevant to the member's context
+5. If no meaningful recommendation can be made, omit this section
 
-Output format:
-- Provide ONLY the direct factual answer
-- No meta-commentary, no references to messages, no dates of messages
-- Pure facts in third person`;
+Output format (use exactly these markers):
+ANSWER:
+[Your direct factual answer here]
+
+RECOMMENDATION:
+[Your proactive recommendation here, or omit this section if not applicable]
+
+Example:
+ANSWER:
+Layla is planning a five-night stay at Claridge's in London starting on a Monday in November 2025, with a chauffeur-driven Bentley.
+
+RECOMMENDATION:
+Consider arranging afternoon tea reservations at Claridge's and pre-booking theater tickets for West End shows during her London stay.`;
 }
 
 /**
