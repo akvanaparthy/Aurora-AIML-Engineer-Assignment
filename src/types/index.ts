@@ -39,6 +39,14 @@ export interface AskResponse {
   answer: string;
   confidence?: 'high' | 'medium' | 'low';
   sources?: number;
+  references?: MessageReference[];
+  further_recommendation?: string;
+}
+
+export interface MessageReference {
+  user: string;
+  date: string;
+  excerpt: string;
 }
 
 export interface HealthResponse {
