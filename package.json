@@ -15,10 +15,12 @@
   "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
+    "@pinecone-database/pinecone": "^3.0.3",
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "openai": "^4.73.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
