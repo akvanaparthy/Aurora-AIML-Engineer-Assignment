@@ -1,35 +1,58 @@
 import { Message } from '../types';
 import { findUserName, extractKeywords, filterRelevantMessages } from './dataProcessor';
 import { semanticSearch, isVectorStoreReady } from '../services/vectorStore';
+import { analyzeQuery, isMultiUserQuery, QueryAnalysis } from './queryAnalyzer';
 
-const MAX_MESSAGES_TO_CLAUDE = 50;
-const MAX_MESSAGES_PER_USER = 30;
+// Removed hard message count limits - now controlled by token limits for better flexibility
+const MAX_MESSAGES_PER_USER = 100; // Generous limit, actual constraint is token-based
 
 const ENABLE_SEMANTIC_SEARCH = process.env.ENABLE_SEMANTIC_SEARCH === 'true';
+const MAX_CONTEXT_TOKENS = parseInt(process.env.MAX_CONTEXT_TOKENS || '20000', 10);
+
+// TEMPORARY: No limits test mode
+const NO_LIMITS_TEST = process.env.NO_LIMITS_TEST === 'true';
 
 /**
  * Optimize the query by finding relevant messages and reducing context size
+ * Uses adaptive search strategy based on query type
  */
 export async function optimizeQuery(
   question: string,
   messagesByUser: Map<string, Message[]>,
   allMessages: Message[]
 ): Promise<Message[]> {
-  // Step 1: Check if the question mentions a specific user
-  const userName = extractUserNameFromQuestion(question, messagesByUser);
+  // Analyze query to determine search strategy
+  const analysis = analyzeQuery(question, messagesByUser);
 
-  if (userName) {
-    console.log(`   Detected user in question: ${userName}`);
-    return optimizeForUser(question, userName, messagesByUser, allMessages);
+  console.log(`   📊 Query Analysis: ${analysis.type} query (${analysis.strategy})`);
+  console.log(`   🔍 Search params: topK=${analysis.topK}, threshold=${analysis.similarityThreshold}`);
+
+  if (analysis.entities.userNames.length > 0) {
+    console.log(`   👤 Detected users: ${analysis.entities.userNames.join(', ')}`);
+  }
+  if (analysis.entities.dates.length > 0) {
+    console.log(`   📅 Detected dates: ${analysis.entities.dates.join(', ')}`);
+  }
+  if (analysis.entities.locations.length > 0) {
+    console.log(`   📍 Detected locations: ${analysis.entities.locations.join(', ')}`);
+  }
+  if (analysis.entities.specificItems.length > 0) {
+    console.log(`   🏷️  Detected items: ${analysis.entities.specificItems.join(', ')}`);
   }
 
-  // Step 2: No specific user - use semantic or keyword-based filtering
+  // Step 1: Check if the question mentions a specific user
+  if (analysis.entities.userNames.length > 0) {
+    const userName = analysis.entities.userNames[0]; // Use first detected user
+    return optimizeForUser(question, userName, messagesByUser, allMessages, analysis);
+  }
+
+  // Step 2: Use adaptive semantic or keyword-based filtering
   if (ENABLE_SEMANTIC_SEARCH && isVectorStoreReady()) {
-    console.log(`   Using semantic search for query`);
-    return optimizeWithSemanticSearch(question);
+    console.log(`   Using adaptive semantic search`);
+    return optimizeWithAdaptiveSemanticSearch(question, analysis, allMessages);
   } else {
     console.log(`   No specific user detected, filtering by keywords`);
-    return optimizeGeneral(question, allMessages);
+    return optimizeGeneral(question, allMessages, analysis);
   }
 }
 
@@ -73,12 +96,23 @@ function extractUserNameFromQuestion(
 }
 
 /**
- * Optimize query using semantic search
+ * Optimize query using adaptive semantic search
  */
-async function optimizeWithSemanticSearch(question: string): Promise<Message[]> {
-  const topK = parseInt(process.env.SEMANTIC_SEARCH_TOP_K || '20', 10);
-  const results = await semanticSearch(question, topK);
-  return results.slice(0, MAX_MESSAGES_TO_CLAUDE);
+async function optimizeWithAdaptiveSemanticSearch(
+  question: string,
+  analysis: QueryAnalysis,
+  allMessages: Message[]
+): Promise<Message[]> {
+  const results = await semanticSearch(question, analysis.topK);
+
+  // For broad queries, apply diversity sampling
+  if (analysis.type === 'broad' && isMultiUserQuery(question)) {
+    console.log(`   🌐 Applying diversity sampling for multi-user query`);
+    return diversifySampling(results, allMessages);
+  }
+
+  // No hard limit - token truncation will handle this
+  return results;
 }
 
 /**
@@ -88,7 +122,8 @@ async function optimizeForUser(
   question: string,
   userName: string,
   messagesByUser: Map<string, Message[]>,
-  allMessages: Message[]
+  allMessages: Message[],
+  analysis: QueryAnalysis
 ): Promise<Message[]> {
   const userMessages = messagesByUser.get(userName) || [];
 
@@ -97,13 +132,13 @@ async function optimizeForUser(
   }
 
   if (ENABLE_SEMANTIC_SEARCH && isVectorStoreReady()) {
-    const topK = parseInt(process.env.SEMANTIC_SEARCH_TOP_K || '20', 10);
-    const semanticResults = await semanticSearch(question, topK, {
+    // Use adaptive topK based on query type
+    const semanticResults = await semanticSearch(question, analysis.topK, {
       user_name: userName
     });
 
     const limited = semanticResults.slice(0, MAX_MESSAGES_PER_USER);
-    console.log(`   Found ${limited.length} relevant messages for ${userName} using semantic search`);
+    console.log(`   Found ${limited.length} relevant messages for ${userName} using adaptive semantic search`);
     return limited;
   }
 
@@ -122,19 +157,79 @@ async function optimizeForUser(
 /**
  * Optimize query for general questions (no specific user)
  */
-function optimizeGeneral(question: string, allMessages: Message[]): Message[] {
+function optimizeGeneral(
+  question: string,
+  allMessages: Message[],
+  analysis: QueryAnalysis
+): Message[] {
   // Extract keywords from question
   const keywords = extractKeywords(question);
+
+  // Adjust max messages based on query type
+  const maxMessages = analysis.type === 'broad' ? 150 : 100;
 
   // Filter all messages by relevance
   const relevantMessages = filterRelevantMessages(
     allMessages,
     keywords,
-    MAX_MESSAGES_TO_CLAUDE
+    maxMessages
   );
+
+  // For broad queries, apply diversity sampling
+  if (analysis.type === 'broad' && isMultiUserQuery(question)) {
+    console.log(`   🌐 Applying diversity sampling for multi-user query`);
+    return diversifySampling(relevantMessages, allMessages);
+  }
 
   console.log(`   Found ${relevantMessages.length} relevant messages across all users`);
   return relevantMessages;
+}
+
+/**
+ * Apply diversity sampling to ensure results span multiple users
+ * This is useful for broad queries that benefit from multiple perspectives
+ */
+function diversifySampling(messages: Message[], allMessages: Message[]): Message[] {
+  if (messages.length === 0) {
+    return messages;
+  }
+
+  // Group messages by user
+  const messagesByUser = new Map<string, Message[]>();
+  for (const msg of messages) {
+    const userMsgs = messagesByUser.get(msg.user_name) || [];
+    userMsgs.push(msg);
+    messagesByUser.set(msg.user_name, userMsgs);
+  }
+
+  console.log(`   📊 Diversity sampling: ${messagesByUser.size} unique users in results`);
+
+  // If we already have good diversity (5+ users), return as is
+  if (messagesByUser.size >= 5) {
+    return messages;
+  }
+
+  // Otherwise, ensure at least a few messages from different users
+  const diverseMessages: Message[] = [];
+  const usersIncluded = new Set<string>();
+  const targetUsers = Math.max(messagesByUser.size, 5);
+  const messagesPerUser = Math.max(10, Math.floor(100 / targetUsers)); // Aim for ~100 messages distributed
+
+  // First pass: Add top messages from each user
+  for (const [userName, userMessages] of messagesByUser) {
+    const count = Math.min(messagesPerUser, userMessages.length);
+    diverseMessages.push(...userMessages.slice(0, count));
+    usersIncluded.add(userName);
+  }
+
+  // Second pass: Fill with additional relevant messages
+  const additionalMessages = messages
+    .filter(msg => !diverseMessages.some(dm => dm.id === msg.id))
+    .slice(0, 50); // Add up to 50 more for good measure
+  diverseMessages.push(...additionalMessages);
+
+  console.log(`   ✅ Diversity sampling complete: ${diverseMessages.length} messages from ${usersIncluded.size} users`);
+  return diverseMessages;
 }
 
 /**
@@ -152,11 +247,19 @@ export function estimateTokens(messages: Message[]): number {
 
 /**
  * Truncate messages if they exceed token limit
+ * Now uses configurable MAX_CONTEXT_TOKENS (default: 20,000)
  */
 export function truncateMessages(
   messages: Message[],
-  maxTokens: number = 6000
+  maxTokens: number = MAX_CONTEXT_TOKENS
 ): Message[] {
+  // TEMPORARY: Skip truncation if in no-limits test mode
+  if (NO_LIMITS_TEST) {
+    const totalTokens = estimateTokens(messages);
+    console.log(`   🚨 NO LIMITS TEST MODE: Using ALL ${messages.length} messages (${totalTokens} tokens, NO TRUNCATION)`);
+    return messages;
+  }
+
   let currentTokens = 0;
   const truncated: Message[] = [];
 
@@ -172,7 +275,9 @@ export function truncateMessages(
   }
 
   if (truncated.length < messages.length) {
-    console.log(`   Truncated messages from ${messages.length} to ${truncated.length} to fit token limit`);
+    console.log(`   ⚠️  Truncated messages from ${messages.length} to ${truncated.length} to fit ${maxTokens} token limit (${currentTokens} tokens used)`);
+  } else {
+    console.log(`   ✅ Using all ${messages.length} messages (${currentTokens} tokens, within ${maxTokens} limit)`);
   }
 
   return truncated;
