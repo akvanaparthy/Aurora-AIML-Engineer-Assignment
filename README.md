@@ -4,7 +4,7 @@ An intelligent question-answering API that uses adaptive semantic search and AI 
 
 ## Live Demo
 
-**API:** https://aurora-qa.vercel.app
+**API:** https://aurora-qa.vercel.app/ask
 
 ```bash
 curl -X POST https://aurora-qa.vercel.app/ask \
@@ -12,7 +12,7 @@ curl -X POST https://aurora-qa.vercel.app/ask \
   -d '{"question": "When is Layla planning her trip to London?"}'
 ```
 
-**Frontend Demo:** https://aurora-qa.vercel.app (includes a simple chat interface)
+**Frontend Demo:** https://aurora-qa.vercel.app (includes a simple chat interface that matches Aurora theme)
 
 ## What It Does
 
@@ -161,7 +161,7 @@ Returns dataset statistics (message count, users, date ranges, etc).
 1. Clone and install:
 ```bash
 git clone <your-repo>
-cd member-qa-system
+cd Aurora-AIML-Engineer-Assignment
 npm install
 ```
 
@@ -204,12 +204,9 @@ A simple, elegant chat interface is included at the root URL (https://aurora-qa.
 
 ## Deployment
 
-The system is deployed on **Vercel** and includes configs for multiple deployment options:
+The system is deployed on **Vercel**:
 
 - **Vercel:** Currently deployed (see `vercel.json`)
-- **Render.com:** Connect your repo, uses `render.yaml`
-- **Docker:** Use `docker-compose.yml` or `Dockerfile` directly
-- **GCP Cloud Run:** Compatible with containerized deployment
 
 **Vercel Deployment:**
 ```bash
@@ -323,6 +320,11 @@ This means a question like "How many cars does Vikram have?" gets 50 highly rele
 
 The main tradeoff is complexity, but with Pinecone's managed service and OpenAI's embedding API, it's mostly just configuration.
 
+### Why using 2 types of queries?
+While developing, I initially set the references/sources/top_k to 20, and tested few questions only to get not so accurate result. Then I increased the k to 50 and 100, noticed that given 300-350 messages per user despite of setting top_k to 100, the answer is accurate as the response we got fot the top_k 50. So, I have changed it back to 50. But then, I realised, thats just when you point out a specific user, so the semantic search goes on and provides result, because when you input a username or a date, the search will be limited to maybe 300-350 messages as per our dataset, but not all the 3k+ messages dataset.
+
+Now, what if we dont input any specific word? say no name, no date, just we ask "What's the most visited restaurant" or "Common diet for all the people". Now the limited 50 references won't be sufficient, but again, if we set 100 as top_k, it might not effect in small scale, but it surely does effect on large scale. Not only in the aspect of cost based on the token out, but also the perfornamce time and efficiency, there might be even cases that the model wont accept the context length, most of the models accept upto 200k contect window, lets say if we convert all these 3k+ messages, it would near about 100-150k context length easily, so setting top_k to 100 or above on current scale is almost equal to setting up the context legth to almost maximum to above 50% on large scale. So there comes this 2 query theory, our model app will automaically define the query type into 2 types, the specific will have 50 or it can be adjustable because, i didnt noticed any difference change above 50 as much i noticied from 20 to 50. But in general, for the broad queries which i gave examples earlier, the search window/references/messages/context we give to the LLM is not sufficient, that's the reason we are providing claude more context length by giving it more top results. Yes, it still might effect on large scale, but atleast for the other questions the time, efficiency, cost are optimized. 
+
 ## Data Insights
 
 The dataset has 3,349 messages from 10 luxury concierge members spanning November 2024 to November 2025.
@@ -334,9 +336,6 @@ Hans Müller's name appears as "Hans Mü\u00c3\u00bc ller" in the API response. 
 
 **PII Exposure**
 The API contains a lot of sensitive info - phone numbers, passport numbers, card numbers, full addresses, detailed travel itineraries. For a production system, this would need proper authentication and maybe PII redaction.
-
-**Future Dates**
-Messages are dated into November 2025, which obviously hasn't happened yet. This is fine for a demo dataset, just noting it.
 
 **Message Distribution**
 Looking at the data:
@@ -401,6 +400,408 @@ Unlike traditional RAG systems with fixed parameters, this implementation:
 
 ### Additional Documentation
 - **[CONFIGURATION.md](CONFIGURATION.md):** Detailed parameter tuning guide
-- **[test-adaptive-search.md](test-adaptive-search.md):** Testing guide and examples
-- **[POTENTIAL-ISSUES.md](POTENTIAL-ISSUES.md):** Production considerations and known limitations
+
+---
+
+## 🚀 Future Scope & Enhancements
+
+This project can be extended with the following features to enhance functionality and user experience:
+
+### 1. Multi-Question Batch Processing
+**Purpose:** Allow users to ask multiple questions in a single request for efficiency.
+
+**Endpoint:** `POST /ask/batch`
+
+**Request:**
+```json
+{
+  "questions": [
+    "When is Layla planning her trip to London?",
+    "How many cars does Vikram Desai have?",
+    "What are Amira's favorite restaurants?"
+  ]
+}
+```
+
+**Response:**
+```json
+{
+  "answers": [
+    { "question": "...", "answer": "...", "confidence": "high", "sources": 16 },
+    { "question": "...", "answer": "...", "confidence": "low", "sources": 0 }
+  ],
+  "processingTime": "5.2s"
+}
+```
+
+---
+
+### 2. Conversational Context & Follow-up Questions
+**Purpose:** Enable natural conversations with context retention across multiple questions.
+
+**Enhancement:** Add conversation session tracking with TTL-based memory.
+
+**Example:**
+```json
+{
+  "question": "Tell me more about that trip",
+  "conversationId": "conv-123"
+}
+```
+
+**Implementation:** Store previous Q&A pairs in cache with conversation IDs, allowing follow-up questions to reference earlier context.
+
+---
+
+### 3. Question Suggestions & Auto-complete
+**Purpose:** Help users discover what they can ask and improve query formulation.
+
+**Endpoint:** `GET /ask/suggestions?query=Layla`
+
+**Response:**
+```json
+{
+  "suggestions": [
+    "When is Layla planning her trip to London?",
+    "What restaurants has Layla mentioned?",
+    "What are Layla's dietary preferences?",
+    "What hotels does Layla prefer?"
+  ],
+  "basedOn": "Member activity patterns and common question templates"
+}
+```
+
+**Implementation:** Analyze member message patterns and generate template questions based on detected entities and topics.
+
+---
+
+### 4. Member-Specific Summary Endpoint
+**Purpose:** Quick access to comprehensive information about a specific member.
+
+**Endpoint:** `GET /members/:name/summary`
+
+**Response:**
+```json
+{
+  "name": "Layla Kawaguchi",
+  "messageCount": 330,
+  "recentTopics": ["London trip", "Claridge's", "Bentley chauffeur"],
+  "upcomingEvents": [
+    {
+      "type": "travel",
+      "destination": "London",
+      "date": "November 2025",
+      "details": "5-night stay at Claridge's"
+    }
+  ],
+  "preferences": {
+    "dining": ["Nobu", "The Ritz", "Michelin-starred"],
+    "travel": ["luxury hotels", "private chauffeur"],
+    "transportation": ["Bentley", "first-class flights"]
+  },
+  "contacts": {
+    "phone": "555-xxx-xxxx",
+    "lastUpdate": "2025-11-10"
+  }
+}
+```
+
+---
+
+### 5. Enhanced Query Classification & Metadata
+**Purpose:** Provide transparency about how questions are interpreted and processed.
+
+**Enhancement to `/ask` response:**
+```json
+{
+  "question": "When is Layla's London trip?",
+  "answer": "...",
+  "metadata": {
+    "queryType": "specific",
+    "strategy": "semantic-search",
+    "detectedEntities": {
+      "users": ["Layla Kawaguchi"],
+      "dates": ["November 2025"],
+      "locations": ["London"],
+      "topics": ["travel", "accommodation"]
+    },
+    "searchParams": {
+      "topK": 50,
+      "threshold": 0.7,
+      "messagesRetrieved": 16
+    }
+  }
+}
+```
+
+---
+
+### 6. Confidence Score Explanation
+**Purpose:** Explain why the system has high/medium/low confidence in answers.
+
+**Response enhancement:**
+```json
+{
+  "answer": "...",
+  "confidence": "high",
+  "confidenceExplanation": {
+    "score": 0.92,
+    "factors": [
+      "Found 16 highly relevant messages from the target user",
+      "Multiple mentions of specific dates and locations",
+      "Consistent information across messages",
+      "Recent messages (within last 30 days)"
+    ],
+    "deductionReasons": []
+  }
+}
+```
+
+---
+
+### 7. Search History & Analytics Dashboard
+**Purpose:** Track system usage and identify popular queries for optimization.
+
+**Endpoint:** `GET /analytics/popular-questions`
+
+**Response:**
+```json
+{
+  "period": "last-7-days",
+  "topQuestions": [
+    { "question": "When is Layla's London trip?", "count": 45, "avgConfidence": 0.89 },
+    { "question": "Vikram's cars", "count": 23, "avgConfidence": 0.34 }
+  ],
+  "topMembers": [
+    { "name": "Layla Kawaguchi", "queryCount": 89 },
+    { "name": "Vikram Desai", "queryCount": 56 }
+  ],
+  "averageConfidence": 0.78,
+  "averageResponseTime": "2.4s",
+  "totalQueries": 342
+}
+```
+
+---
+
+### 8. Advanced Natural Language Date Parsing
+**Purpose:** Better handle relative and contextual date references.
+
+**Examples:**
+- "What did Layla say last week?"
+- "What are upcoming events this month?"
+- "What was discussed on December 15th?"
+- "Show me messages from 3 days ago"
+
+**Implementation:** Add date normalization utilities in `queryAnalyzer.ts` to convert relative dates to absolute timestamps.
+
+---
+
+### 9. Similar Questions & Related Queries
+**Purpose:** Suggest related questions users might be interested in.
+
+**Endpoint:** `GET /ask/related?question=When is Layla's London trip?`
+
+**Response:**
+```json
+{
+  "relatedQuestions": [
+    "What hotel is Layla staying at in London?",
+    "Does Layla need transportation in London?",
+    "What are Layla's dining preferences in London?",
+    "Who else is traveling to London?"
+  ],
+  "similarPastQueries": [
+    "When is Layla traveling to Paris?",
+    "What are Layla's travel plans?"
+  ]
+}
+```
+
+---
+
+### 10. Export & Download Member Data
+**Purpose:** Allow users to export structured summaries of member information.
+
+**Endpoint:** `GET /members/:name/export?format=json|csv|pdf`
+
+**Formats:**
+- JSON: Structured data export
+- CSV: Spreadsheet-compatible format
+- PDF: Human-readable report
+
+**Use case:** Generating reports for concierge staff or member profiles.
+
+---
+
+### 11. Real-time Question Validation
+**Purpose:** Validate questions before processing to prevent errors and improve UX.
+
+**Endpoint:** `POST /ask/validate`
+
+**Request:**
+```json
+{ "question": "asdfghjkl" }
+```
+
+**Response:**
+```json
+{
+  "valid": false,
+  "reason": "Question appears to be invalid or gibberish",
+  "suggestions": [
+    "Try asking about specific members (e.g., 'When is Layla's trip?')",
+    "Include what information you're looking for (dates, preferences, reservations)",
+    "Use complete sentences"
+  ]
+}
+```
+
+---
+
+### 12. WebSocket Support for Streaming Answers
+**Purpose:** Provide real-time streaming of answers as they're being generated.
+
+**Implementation:**
+```javascript
+// Client receives incremental updates
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  if (data.type === 'partial') {
+    appendAnswer(data.text); // "Layla is planning..."
+  } else if (data.type === 'complete') {
+    finalize(data.confidence, data.sources);
+  }
+}
+```
+
+**Benefits:** Better UX for long-running queries, reduced perceived latency.
+
+---
+
+### 13. Question Reformulation & Clarification
+**Purpose:** Help users phrase questions more effectively.
+
+**Response enhancement:**
+```json
+{
+  "originalQuestion": "Layla London",
+  "reformulatedQuestion": "When is Layla planning her trip to London?",
+  "didReformulate": true,
+  "reformulationConfidence": 0.85,
+  "answer": "...",
+  "askForClarification": false
+}
+```
+
+**Alternative (ambiguous query):**
+```json
+{
+  "needsClarification": true,
+  "ambiguities": [
+    "Which aspect of Layla's London trip? (dates, hotel, activities, transportation)"
+  ],
+  "suggestedQuestions": [
+    "When is Layla traveling to London?",
+    "Where is Layla staying in London?",
+    "What activities does Layla have planned in London?"
+  ]
+}
+```
+
+---
+
+### 14. Anomaly Detection in Answers
+**Purpose:** Flag potentially inconsistent or conflicting information.
+
+**Response enhancement:**
+```json
+{
+  "answer": "Vikram has 5 luxury cars",
+  "confidence": "medium",
+  "anomalyDetected": true,
+  "anomaly": {
+    "type": "conflicting_information",
+    "description": "Earlier messages mention 3 cars, but a recent message says 5",
+    "conflictingReferences": [
+      { "date": "Sep 10, 2024", "statement": "my three cars" },
+      { "date": "Nov 2, 2024", "statement": "I now own five vehicles" }
+    ],
+    "recommendation": "Most recent information suggests 5 cars"
+  }
+}
+```
+
+---
+
+### 15. Advanced Rate Limiting & Usage Analytics
+**Purpose:** Production-ready API protection and usage tracking.
+
+**Response Headers:**
+```
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 87
+X-RateLimit-Reset: 1699876543
+X-RateLimit-Policy: per-user
+```
+
+**Dashboard Endpoint:** `GET /usage/stats`
+```json
+{
+  "currentPeriod": "2025-11-13",
+  "requests": {
+    "total": 1247,
+    "successful": 1189,
+    "failed": 58,
+    "rateLimited": 12
+  },
+  "apiCosts": {
+    "claude": "$8.42",
+    "openai": "$2.15",
+    "total": "$10.57"
+  },
+  "topUsers": [
+    { "ip": "192.168.1.1", "requests": 234 }
+  ]
+}
+```
+
+---
+
+## Implementation Priority
+
+### High Priority (Most Valuable)
+1. **Member-Specific Summary Endpoint** (#4) - Comprehensive data showcase
+2. **Confidence Explanation** (#6) - Transparency and trust
+3. **Question Suggestions** (#3) - Improved discoverability
+4. **Multi-Question Batch** (#1) - Evaluation efficiency
+
+### Medium Priority (Production Ready)
+5. **Rate Limiting & Analytics** (#15) - Essential for deployment
+6. **Question Validation** (#11) - Prevents abuse
+7. **Search History** (#7) - System monitoring
+
+### Lower Priority (Nice to Have)
+8. **WebSocket Streaming** (#12) - UX enhancement
+9. **Export Functionality** (#10) - Additional utility
+10. **Conversational Context** (#2) - Advanced UX
+
+---
+
+## Technical Considerations
+
+### Scalability
+- All features designed to work with current vector store architecture
+- Batch processing parallelizable for efficiency
+- Analytics can use separate time-series database
+
+### Cost Management
+- Batch processing reduces per-query API costs
+- Caching strategies for suggestions and summaries
+- Rate limiting prevents cost overruns
+
+### Privacy & Security
+- PII redaction before exports
+- Access controls for analytics endpoints
+- Audit logs for all data access
 
