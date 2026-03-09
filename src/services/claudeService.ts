@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { Message } from '../types';
 
 const CLAUDE_API_KEY = process.env.CLAUDE_API_KEY;
-const MODEL = 'claude-3-5-haiku-20241022'; // Claude 3.5 Haiku (fast and cost-effective)
+const MODEL = 'claude-haiku-4-5'; // Claude 3.5 Haiku (fast and cost-effective)
 const MAX_TOKENS = 1024;
 
 // Initialize Anthropic client

@@ -628,6 +628,8 @@
 
         if (response.ok) {
           addMessage('assistant', data.answer, data.confidence, data.references, data.further_recommendation, data.sources);
+        } else if (response.status >= 500) {
+          addMessage('assistant', 'API issue, contact owner to fix.', 'low');
         } else {
           addMessage('assistant', `Error: ${data.message || 'Unable to process your question'}`, 'low');
         }
