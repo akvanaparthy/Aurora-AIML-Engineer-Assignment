@@ -103,6 +103,14 @@ export async function answerQuestion(
     };
   } catch (error) {
     console.error('❌ Claude API error:', error);
+    // Detect model-not-found errors from Anthropic
+    const errObj = error as any;
+    if (
+      errObj?.error?.error?.type === 'not_found_error' ||
+      (errObj?.status === 404 && errObj?.error?.error?.message?.startsWith('model:'))
+    ) {
+      throw new Error('MODEL_NOT_FOUND');
+    }
     throw new Error(`Failed to get answer from Claude: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
