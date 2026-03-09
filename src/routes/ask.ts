@@ -89,6 +89,13 @@ router.post('/', async (req: Request, res: Response) => {
         });
       }
 
+      if (error.message === 'MODEL_NOT_FOUND') {
+        return res.status(503).json({
+          error: 'model_not_found',
+          message: 'LLM Model not found, update model name in api requests'
+        });
+      }
+
       if (error.message.includes('Failed to fetch')) {
         return res.status(503).json({
           error: 'Service unavailable',

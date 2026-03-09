@@ -628,6 +628,8 @@
 
         if (response.ok) {
           addMessage('assistant', data.answer, data.confidence, data.references, data.further_recommendation, data.sources);
+        } else if (data.error === 'model_not_found') {
+          addMessage('assistant', 'LLM Model not found, update model name in api requests.', 'low');
         } else if (response.status >= 500) {
           addMessage('assistant', 'API issue, contact owner to fix.', 'low');
         } else {
